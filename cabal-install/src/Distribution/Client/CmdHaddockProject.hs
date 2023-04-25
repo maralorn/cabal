@@ -93,6 +93,7 @@ import Distribution.Simple.Utils
 import Distribution.Types.InstalledPackageInfo (InstalledPackageInfo (..))
 import Distribution.Types.PackageId (pkgName)
 import Distribution.Types.PackageName (unPackageName)
+import Distribution.Types.UnitId (unUnitId)
 import Distribution.Types.Version (mkVersion)
 import Distribution.Types.VersionRange (orLaterVersion)
 import Distribution.Verbosity as Verbosity
@@ -265,6 +266,8 @@ haddockProjectAction flags _extraArgs globalFlags = do
           | not localStyle ->
               return []
         Left package -> do
+          -- TODO: this might not work for public packages with sublibraries
+          -- (which will be visible if one is using `--local` switch).
           let packageName = unPackageName (pkgName $ sourcePackageId package)
               destDir = outputDir </> packageName
           fmap catMaybes $ for (haddockInterfaces package) $ \interfacePath -> do
@@ -285,6 +288,7 @@ haddockProjectAction flags _extraArgs globalFlags = do
           case elabLocalToProject package of
             True -> do
               let distDirParams = elabDistDirParams sharedConfig' package
+                  unitId = unUnitId (elabUnitId package)
                   buildDir = distBuildDirectory distLayout distDirParams
                   packageName = unPackageName (pkgName $ elabPkgSourceId package)
               let docDir =
@@ -292,7 +296,7 @@ haddockProjectAction flags _extraArgs globalFlags = do
                       </> "doc"
                       </> "html"
                       </> packageName
-                  destDir = outputDir </> packageName
+                  destDir = outputDir </> unitId
                   interfacePath =
                     destDir
                       </> packageName
@@ -303,7 +307,7 @@ haddockProjectAction flags _extraArgs globalFlags = do
                   copyDirectoryRecursive verbosity docDir destDir
                     >> return
                       [
-                        ( packageName
+                        ( unitId
                         , interfacePath
                         , Visible
                         )
@@ -314,6 +318,7 @@ haddockProjectAction flags _extraArgs globalFlags = do
                   return []
             False -> do
               let packageName = unPackageName (pkgName $ elabPkgSourceId package)
+                  unitId = unUnitId (elabUnitId package)
                   packageDir =
                     storePackageDirectory
                       (cabalStoreDirLayout cabalLayout)
@@ -333,7 +338,7 @@ haddockProjectAction flags _extraArgs globalFlags = do
                     -- generated contents page
                     >> return
                       [
-                        ( packageName
+                        ( unitId
                         , interfacePath
                         , Hidden
                         )
@@ -363,11 +368,11 @@ haddockProjectAction flags _extraArgs globalFlags = do
             , haddockProjectInterfaces =
                 Flag
                   [ ( interfacePath
-                    , Just packageName
-                    , Just packageName
+                    , Just name
+                    , Just name
                     , visibility
                     )
-                  | (packageName, interfacePath, visibility) <- packageInfos
+                  | (name, interfacePath, visibility) <- packageInfos
                   ]
             }
     createHaddockIndex
