@@ -3,7 +3,6 @@ module Distribution.Client.CmdHaddockProject
   , haddockProjectAction
   ) where
 
-import Data.Bool (bool)
 import Distribution.Client.Compat.Prelude hiding (get)
 import Prelude ()
 
@@ -60,8 +59,6 @@ import Distribution.Simple.Compiler
   )
 import Distribution.Simple.Flag
   ( Flag (..)
-  , flagElim
-  , flagToList
   , fromFlag
   , fromFlagOrDefault
   )
@@ -109,15 +106,6 @@ haddockProjectAction flags _extraArgs globalFlags = do
   let outputDir = normalise $ fromFlag (haddockProjectDir flags)
   createDirectoryIfMissingVerbose verbosity True outputDir
 
-  when
-    ( (2 :: Int)
-        <= ( flagElim 0 (bool 0 1) (haddockProjectHackage flags)
-              + flagElim 0 (bool 0 1) (haddockProjectLocal flags)
-              + flagElim 0 (const 1) (haddockProjectHtmlLocation flags)
-           )
-    )
-    $ die' verbosity "Options `--local`, `--hackage` and `--html-location` are mutually exclusive`"
-
   warn verbosity "haddock-project command is experimental, it might break in the future"
 
   -- build all packages with appropriate haddock flags
@@ -143,14 +131,8 @@ haddockProjectAction flags _extraArgs globalFlags = do
           , haddockForeignLibs = haddockProjectForeignLibs flags
           , haddockInternal = haddockProjectInternal flags
           , haddockCss = haddockProjectCss flags
-          , haddockLinkedSource =
-              if localOrHackage
-                then Flag True
-                else haddockProjectLinkedSource flags
-          , haddockQuickJump =
-              if localOrHackage
-                then Flag True
-                else haddockProjectQuickJump flags
+          , haddockLinkedSource = Flag True
+          , haddockQuickJump = Flag True
           , haddockHscolourCss = haddockProjectHscolourCss flags
           , haddockContents =
               if localStyle
@@ -235,17 +217,6 @@ haddockProjectAction flags _extraArgs globalFlags = do
         haddockProgram
         (orLaterVersion (mkVersion [2, 26, 1]))
         progs
-
-    unless
-      ( fromFlagOrDefault False (haddockProjectHackage flags)
-          || fromFlagOrDefault False (haddockProjectLocal flags)
-          || fromFlagOrDefault False (haddockProjectGenContents flags)
-      )
-      $ warn verbosity
-      $ "The index.html file will not be created, specify "
-        ++ "--gen-contents flag. Alternatively consider `--local` "
-        ++ "or `--hackage` flag "
-        ++ "which implies it."
 
     --
     -- Build haddocks of each components
@@ -352,19 +323,6 @@ haddockProjectAction flags _extraArgs globalFlags = do
     let flags' =
           flags
             { haddockProjectDir = Flag outputDir
-            , haddockProjectGenIndex =
-                if localOrHackage
-                  then Flag True
-                  else haddockProjectGenIndex flags
-            , haddockProjectGenContents =
-                if localOrHackage
-                  then Flag True
-                  else haddockProjectGenContents flags
-            , haddockProjectQuickJump =
-                if localOrHackage
-                  then Flag True
-                  else haddockProjectQuickJump flags
-            , haddockProjectLinkedSource = haddockLinkedSource haddockFlags
             , haddockProjectInterfaces =
                 Flag
                   [ ( interfacePath
@@ -388,17 +346,9 @@ haddockProjectAction flags _extraArgs globalFlags = do
     -- transitive dependencies; or depend on `--haddocks-html-location` to
     -- provide location of the documentation of dependencies.
     localStyle =
-      let local = fromFlagOrDefault False (haddockProjectLocal flags)
-          hackage = fromFlagOrDefault False (haddockProjectHackage flags)
+      let hackage = fromFlagOrDefault False (haddockProjectHackage flags)
           location = fromFlagOrDefault False (const True <$> haddockProjectHtmlLocation flags)
-       in local && not hackage && not location
-            -- or if none of the flags is given set `localStyle` to `True`
-            || not local && not hackage && not location
-
-    localOrHackage =
-      any id $
-        flagToList (haddockProjectLocal flags)
-          ++ flagToList (haddockProjectHackage flags)
+       in not hackage && not location
 
     reportTargetProblems :: Show x => [x] -> IO a
     reportTargetProblems =
