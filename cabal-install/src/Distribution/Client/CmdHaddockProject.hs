@@ -161,7 +161,10 @@ haddockProjectAction flags _extraArgs globalFlags = do
   -- we need.
   --
 
-  withContextAndSelectors RejectNoTargets Nothing nixFlags ["all"] globalFlags HaddockCommand $ \targetCtx ctx targetSelectors -> do
+  withContextAndSelectors RejectNoTargets Nothing
+                          (commandDefaultFlags CmdBuild.buildCommand)
+                          ["all"] globalFlags HaddockCommand
+                          $ \targetCtx ctx targetSelectors -> do
     baseCtx <- case targetCtx of
       ProjectContext -> return ctx
       GlobalContext -> return ctx
@@ -217,6 +220,16 @@ haddockProjectAction flags _extraArgs globalFlags = do
         haddockProgram
         (orLaterVersion (mkVersion [2, 26, 1]))
         progs
+
+    --
+    -- Build project; we need to build dependencies.
+    --
+    
+    when localStyle $
+      CmdBuild.buildAction
+        (commandDefaultFlags CmdBuild.buildCommand)
+        ["all"]
+        globalFlags
 
     --
     -- Build haddocks of each components
@@ -283,7 +296,12 @@ haddockProjectAction flags _extraArgs globalFlags = do
                         , Visible
                         )
                       ]
-                False -> return []
+                False -> do
+                  warn verbosity
+                       ("haddocks of "
+                        ++ show unitId
+                        ++ " not found in the store")
+                  return []
             False
               | not localStyle ->
                   return []
@@ -314,7 +332,12 @@ haddockProjectAction flags _extraArgs globalFlags = do
                         , Hidden
                         )
                       ]
-                False -> return []
+                False -> do
+                  warn verbosity
+                       ("haddocks of "
+                        ++ show unitId
+                        ++ " not found in the store")
+                  return []
 
     --
     -- generate index, content, etc.
