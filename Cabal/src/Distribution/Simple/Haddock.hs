@@ -835,7 +835,12 @@ renderArgs verbosity tmpFileOpts version comp platform args k = do
           ( \o ->
               outputDir
                 </> case o of
-                  Html -> "index.html"
+                  Html
+                    | fromFlagOrDefault False (argGenIndex args) ->
+                        "index.html"
+                  Html
+                    | otherwise ->
+                        mempty
                   Hoogle -> pkgstr <.> "txt"
           )
         . fromFlagOrDefault [Html]

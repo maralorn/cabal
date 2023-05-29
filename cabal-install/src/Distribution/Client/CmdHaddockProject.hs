@@ -235,6 +235,17 @@ haddockProjectAction flags _extraArgs globalFlags = do
         (orLaterVersion (mkVersion [2, 26, 1]))
         progs
 
+    unless
+      ( fromFlagOrDefault False (haddockProjectHackage flags)
+          || fromFlagOrDefault False (haddockProjectLocal flags)
+          || fromFlagOrDefault False (haddockProjectGenContents flags)
+      )
+      $ warn verbosity
+      $ "The index.html file will not be created, specify "
+        ++ "--gen-contents flag. Alternatively consider `--local` "
+        ++ "or `--hackage` flag "
+        ++ "which implies it."
+
     --
     -- Build haddocks of each components
     --
